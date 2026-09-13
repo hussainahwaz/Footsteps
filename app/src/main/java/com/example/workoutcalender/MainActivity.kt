@@ -100,6 +100,14 @@ class TrackerState(
     fun deleteTracker(trackerId: String) {
         update(trackers.filterNot { it.id == trackerId })
     }
+
+    fun reorder(fromIndex: Int, toIndex: Int) {
+        if (fromIndex == toIndex) return
+        val mutable = trackers.toMutableList()
+        val item = mutable.removeAt(fromIndex)
+        mutable.add(toIndex, item)
+        update(mutable)
+    }
 }
 
 /** Every screen the app can show. A simple stack (see [ConsistencyApp]) drives back-navigation. */
@@ -209,12 +217,14 @@ fun ConsistencyApp(
                             onToggleToday = { state.toggleDay(it.id, LocalDate.now()) },
                             onOpenTracker = { push(Screen.TrackerDetail(it.id)) },
                             onAddTracker = { push(Screen.CreateTracker) },
+                            onReorder = { from, to -> state.reorder(from, to) },
                         )
                         AppScreen.TRACKERS -> TrackersScreen(
                             trackers = state.trackers,
                             onOpenTracker = { push(Screen.TrackerDetail(it.id)) },
                             onAddTracker = { push(Screen.CreateTracker) },
                             onDeleteTracker = { state.deleteTracker(it.id) },
+                            onReorder = { from, to -> state.reorder(from, to) },
                         )
                         AppScreen.SETTINGS -> SettingsScreen(
                             darkMode = darkMode,

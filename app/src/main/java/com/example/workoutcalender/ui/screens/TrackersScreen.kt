@@ -4,6 +4,7 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -13,8 +14,10 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -34,6 +37,7 @@ import androidx.compose.ui.unit.sp
 import com.example.workoutcalender.model.CompletionMethod
 import com.example.workoutcalender.model.Tracker
 import com.example.workoutcalender.model.iconFor
+import com.example.workoutcalender.ui.components.ReorderableTrackerList
 import com.example.workoutcalender.ui.theme.BodyFont
 import com.example.workoutcalender.ui.theme.DisplayFont
 import com.example.workoutcalender.ui.theme.LocalConsistencyColors
@@ -45,6 +49,7 @@ fun TrackersScreen(
     onOpenTracker: (Tracker) -> Unit,
     onAddTracker: () -> Unit,
     onDeleteTracker: (Tracker) -> Unit,
+    onReorder: (from: Int, to: Int) -> Unit,
 ) {
     val colors = LocalConsistencyColors.current
     var pendingDelete by remember { mutableStateOf<Tracker?>(null) }
@@ -67,7 +72,7 @@ fun TrackersScreen(
 
         item {
             Text(
-                text = "Tap to open · Hold to delete",
+                text = "Tap to open · Hold to delete · Drag the handle to reorder",
                 fontFamily = BodyFont,
                 fontSize = 12.sp,
                 color = colors.textDim,
@@ -75,51 +80,68 @@ fun TrackersScreen(
             )
         }
 
-        items(trackers, key = { it.id }) { tracker ->
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(14.dp))
-                    .background(colors.surface)
-                    .border(1.dp, colors.border, RoundedCornerShape(14.dp))
-                    .combinedClickable(
-                        onClick = { onOpenTracker(tracker) },
-                        onLongClick = { pendingDelete = tracker },
-                    )
-                    .padding(16.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(14.dp),
-            ) {
-                Box(
+        item {
+            ReorderableTrackerList(
+                trackers = trackers,
+                onMove = onReorder,
+            ) { _, tracker, dragHandleModifier ->
+                Row(
                     modifier = Modifier
-                        .size(40.dp)
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(tracker.color),
-                    contentAlignment = Alignment.Center,
+                        .fillMaxWidth()
+                        .padding(bottom = 10.dp)
+                        .clip(RoundedCornerShape(14.dp))
+                        .background(colors.surface)
+                        .border(1.dp, colors.border, RoundedCornerShape(14.dp))
+                        .combinedClickable(
+                            onClick = { onOpenTracker(tracker) },
+                            onLongClick = { pendingDelete = tracker },
+                        )
+                        .padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(14.dp),
                 ) {
-                    Icon(
-                        imageVector = iconFor(tracker.icon),
-                        contentDescription = null,
-                        tint = Color.White,
-                        modifier = Modifier.size(20.dp),
-                    )
-                }
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(tracker.name, fontFamily = BodyFont, fontWeight = FontWeight.SemiBold, fontSize = 15.sp, color = colors.text)
-                    val methodLabel = when (tracker.method) {
-                        CompletionMethod.QUICK -> "Quick tap"
-                        CompletionMethod.DETAILED -> "Detailed"
-                        CompletionMethod.BOTH -> "Quick + Detailed"
+                    Box(
+                        modifier = Modifier
+                            .size(40.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(tracker.color),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(
+                            imageVector = iconFor(tracker.icon),
+                            contentDescription = null,
+                            tint = Color.White,
+                            modifier = Modifier.size(20.dp),
+                        )
                     }
-                    Text(
-                        text = "${tracker.completedDates.size} days · $methodLabel",
-                        fontFamily = BodyFont,
-                        fontSize = 12.sp,
-                        color = colors.textDim,
-                        modifier = Modifier.padding(top = 2.dp),
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(tracker.name, fontFamily = BodyFont, fontWeight = FontWeight.SemiBold, fontSize = 15.sp, color = colors.text)
+                        val methodLabel = when (tracker.method) {
+                            CompletionMethod.QUICK -> "Quick tap"
+                            CompletionMethod.DETAILED -> "Detailed"
+                            CompletionMethod.BOTH -> "Quick + Detailed"
+                        }
+                        Text(
+                            text = "${tracker.completedDates.size} days · $methodLabel",
+                            fontFamily = BodyFont,
+                            fontSize = 12.sp,
+                            color = colors.textDim,
+                            modifier = Modifier.padding(top = 2.dp),
+                        )
+                    }
+                    Icon(
+                        imageVector = Icons.Filled.Menu,
+                        contentDescription = "Drag to reorder",
+                        tint = colors.textDim,
+                        modifier = Modifier
+                            .size(20.dp)
+                            .then(dragHandleModifier)
+                            .clickable(
+                                indication = null,
+                                interactionSource = remember { MutableInteractionSource() },
+                            ) {},
                     )
                 }
-                Text("›", color = colors.textDim, fontSize = 18.sp)
             }
         }
 
