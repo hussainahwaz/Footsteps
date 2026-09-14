@@ -236,3 +236,65 @@ fun YearlyGrid(
         }
     }
 }
+
+/**
+ * The yearly counterpart to [OverallMonthGrid] -- same "how many trackers were
+ * completed" blended intensity, laid out as 12 month blocks like [YearlyGrid].
+ */
+@Composable
+fun OverallYearlyGrid(
+    year: Int,
+    trackers: List<Tracker>,
+    modifier: Modifier = Modifier,
+    tileSize: Dp = 9.dp,
+) {
+    val colors = LocalConsistencyColors.current
+    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        for (rowStart in 0 until 12 step 3) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                for (m in rowStart until rowStart + 3) {
+                    val ym = YearMonth.of(year, m + 1)
+                    Column(Modifier.weight(1f)) {
+                        Text(
+                            text = ym.month.name.take(1) + ym.month.name.drop(1).lowercase().take(2),
+                            fontFamily = BodyFont,
+                            fontSize = 11.sp,
+                            color = colors.textDim,
+                            modifier = Modifier.padding(bottom = 6.dp),
+                        )
+                        val daysInMonth = ym.lengthOfMonth()
+                        val rows = (daysInMonth + 6) / 7
+                        Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                            for (r in 0 until rows) {
+                                Row(horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+                                    for (c in 0 until 7) {
+                                        val day = r * 7 + c + 1
+                                        if (day > daysInMonth) {
+                                            Box(Modifier.size(tileSize))
+                                        } else {
+                                            val date = ym.atDay(day)
+                                            val count = trackers.count { it.isCompleted(date) }
+                                            val fraction = when {
+                                                count <= 0 -> 0f
+                                                count == 1 -> 0.35f
+                                                count == 2 -> 0.65f
+                                                else -> 1f
+                                            }
+                                            val fill = lerp(colors.tileEmpty, colors.overallAccent, fraction)
+                                            Tile(
+                                                filled = count > 0,
+                                                color = fill,
+                                                size = tileSize,
+                                                cornerRadius = 3.dp,
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

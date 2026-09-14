@@ -12,6 +12,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Create
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -30,17 +32,15 @@ import com.example.workoutcalender.model.iconFor
 import com.example.workoutcalender.ui.components.BigNumber
 import com.example.workoutcalender.ui.components.GridDisplayMode
 import com.example.workoutcalender.ui.components.MonthGrid
+import com.example.workoutcalender.ui.components.MonthNavRow
 import com.example.workoutcalender.ui.components.ScreenHeader
 import com.example.workoutcalender.ui.components.StatBlock
+import com.example.workoutcalender.ui.components.YearNavRow
 import com.example.workoutcalender.ui.components.YearlyGrid
 import com.example.workoutcalender.ui.theme.BodyFont
 import com.example.workoutcalender.ui.theme.LocalConsistencyColors
 import java.time.LocalDate
 import java.time.YearMonth
-import java.time.format.TextStyle
-import java.util.Locale
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Create
 
 private enum class DetailView { MONTHLY, YEARLY }
 
@@ -54,8 +54,11 @@ fun TrackerDetailScreen(
     onOpenDetailedEntry: (LocalDate) -> Unit,
 ) {
     val colors = LocalConsistencyColors.current
+    val today = YearMonth.now()
+
     var view by remember { mutableStateOf(DetailView.MONTHLY) }
-    val currentMonth = YearMonth.now()
+    var selectedMonth by remember { mutableStateOf(today) }
+    var selectedYear by remember { mutableStateOf(today.year) }
 
     fun handleTap(date: LocalDate) {
         when (tracker.method) {
@@ -90,7 +93,6 @@ fun TrackerDetailScreen(
                                 .size(20.dp)
                                 .clickable { onEdit() },
                         )
-
                         Icon(
                             imageVector = iconFor(tracker.icon),
                             contentDescription = null,
@@ -139,13 +141,19 @@ fun TrackerDetailScreen(
                     horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally,
                 ) {
                     BigNumber(
-                        value = tracker.completedInMonth(currentMonth.year, currentMonth.monthValue),
+                        value = tracker.completedInMonth(selectedMonth.year, selectedMonth.monthValue),
                         label = "ACTIVE DAYS",
-                        subtitle = currentMonth.month.getDisplayName(TextStyle.FULL, Locale.getDefault()) + " " + currentMonth.year,
-                        modifier = Modifier.fillMaxWidth().padding(bottom = 20.dp),
+                        modifier = Modifier.fillMaxWidth().padding(bottom = 4.dp),
+                    )
+                    MonthNavRow(
+                        yearMonth = selectedMonth,
+                        onPrevious = { selectedMonth = selectedMonth.minusMonths(1) },
+                        onNext = { selectedMonth = selectedMonth.plusMonths(1) },
+                        canGoNext = selectedMonth < today,
+                        modifier = Modifier.padding(bottom = 20.dp),
                     )
                     MonthGrid(
-                        yearMonth = currentMonth,
+                        yearMonth = selectedMonth,
                         tracker = tracker,
                         displayMode = displayMode,
                         onDayTap = ::handleTap,
@@ -165,16 +173,15 @@ fun TrackerDetailScreen(
                     modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp),
                     horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally,
                 ) {
-                    Text(
-                        text = currentMonth.year.toString(),
-                        fontFamily = com.example.workoutcalender.ui.theme.DisplayFont,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 22.sp,
-                        color = colors.text,
+                    YearNavRow(
+                        year = selectedYear,
+                        onPrevious = { selectedYear -= 1 },
+                        onNext = { selectedYear += 1 },
+                        canGoNext = selectedYear < today.year,
                         modifier = Modifier.padding(bottom = 18.dp),
                     )
                     YearlyGrid(
-                        year = currentMonth.year,
+                        year = selectedYear,
                         tracker = tracker,
                         tappable = false,
                         onDayTap = null,

@@ -18,25 +18,34 @@ import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.workoutcalender.model.Tracker
 import com.example.workoutcalender.model.iconFor
 import com.example.workoutcalender.ui.components.BigNumber
+import com.example.workoutcalender.ui.components.MonthNavRow
 import com.example.workoutcalender.ui.components.OverallMonthGrid
+import com.example.workoutcalender.ui.components.OverallYearlyGrid
 import com.example.workoutcalender.ui.components.ReorderableTrackerList
 import com.example.workoutcalender.ui.components.Tile
+import com.example.workoutcalender.ui.components.YearNavRow
 import com.example.workoutcalender.ui.theme.BodyFont
 import com.example.workoutcalender.ui.theme.LocalConsistencyColors
 import java.time.LocalDate
 import java.time.YearMonth
 import java.time.format.TextStyle
 import java.util.Locale
+
+private enum class HomeView { MONTHLY, YEARLY }
 
 @Composable
 fun HomeScreen(
@@ -47,9 +56,14 @@ fun HomeScreen(
     onReorder: (from: Int, to: Int) -> Unit,
 ) {
     val colors = LocalConsistencyColors.current
-    val currentMonth = YearMonth.now()
+    val today = YearMonth.now()
+
+    var view by remember { mutableStateOf(HomeView.MONTHLY) }
+    var selectedMonth by remember { mutableStateOf(today) }
+    var selectedYear by remember { mutableStateOf(today.year) }
+
     val activeDays = trackers.flatMap { it.completedDates }
-        .filter { it.year == currentMonth.year && it.monthValue == currentMonth.monthValue }
+        .filter { it.year == selectedMonth.year && it.monthValue == selectedMonth.monthValue }
         .distinct()
         .size
 
@@ -57,27 +71,83 @@ fun HomeScreen(
         modifier = Modifier.fillMaxWidth(),
         contentPadding = PaddingValues(horizontal = 20.dp, vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp),
-
-        ) {
+    ) {
         item {
-            BigNumber(
-                value = activeDays,
-                label = "ACTIVE DAYS",
-                subtitle = currentMonth.month.getDisplayName(TextStyle.FULL, Locale.getDefault()) + " " + currentMonth.year,
-                modifier = Modifier.fillMaxWidth().padding(top = 100.dp, bottom = 20.dp),
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(top = 40.dp, bottom = 4.dp),
+                horizontalArrangement = Arrangement.Center,
+            ) {
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    listOf(HomeView.MONTHLY to "Monthly", HomeView.YEARLY to "Yearly").forEach { (v, label) ->
+                        val selected = view == v
+                        Text(
+                            text = label,
+                            fontFamily = BodyFont,
+                            fontWeight = FontWeight.Medium,
+                            fontSize = 13.sp,
+                            color = if (selected) Color.White else colors.textDim,
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(20.dp))
+                                .background(if (selected) colors.overallAccent else Color.Transparent)
+                                .border(
+                                    width = if (selected) 0.dp else 1.dp,
+                                    color = colors.border,
+                                    shape = RoundedCornerShape(20.dp),
+                                )
+                                .clickable { view = v }
+                                .padding(horizontal = 16.dp, vertical = 7.dp),
+                        )
+                    }
+                }
+            }
         }
 
-        item {
-            // The Home overall grid always shows multi-tracker intensity, regardless of
-            // the per-tracker display mode setting — that setting only affects the
-            // per-tracker screens where a single tracker's own tiles are shown.
-            OverallMonthGrid(
-                yearMonth = currentMonth,
-                trackers = trackers,
-                tileSize = 48.dp,
-                modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
-            )
+        when (view) {
+            HomeView.MONTHLY -> {
+                item {
+                    BigNumber(
+                        value = activeDays,
+                        label = "ACTIVE DAYS",
+                        modifier = Modifier.fillMaxWidth().padding(top = 60.dp, bottom = 4.dp),
+                    )
+                    MonthNavRow(
+                        yearMonth = selectedMonth,
+                        onPrevious = { selectedMonth = selectedMonth.minusMonths(1) },
+                        onNext = { selectedMonth = selectedMonth.plusMonths(1) },
+                        canGoNext = selectedMonth < today,
+                        modifier = Modifier.padding(bottom = 20.dp),
+                    )
+                }
+                item {
+                    // The Home overall grid always shows multi-tracker intensity, regardless
+                    // of the per-tracker display mode setting — that setting only affects
+                    // the per-tracker screens where a single tracker's own tiles are shown.
+                    OverallMonthGrid(
+                        yearMonth = selectedMonth,
+                        trackers = trackers,
+                        tileSize = 48.dp,
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
+                    )
+                }
+            }
+            HomeView.YEARLY -> {
+                item {
+                    YearNavRow(
+                        year = selectedYear,
+                        onPrevious = { selectedYear -= 1 },
+                        onNext = { selectedYear += 1 },
+                        canGoNext = selectedYear < today.year,
+                        modifier = Modifier.padding(top = 60.dp, bottom = 18.dp),
+                    )
+                }
+                item {
+                    OverallYearlyGrid(
+                        year = selectedYear,
+                        trackers = trackers,
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 12.dp),
+                    )
+                }
+            }
         }
 
         item {
