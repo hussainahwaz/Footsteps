@@ -108,7 +108,7 @@ fun HomeScreen(
                     BigNumber(
                         value = activeDays,
                         label = "ACTIVE DAYS",
-                        modifier = Modifier.fillMaxWidth().padding(top = 60.dp, bottom = 4.dp),
+                        modifier = Modifier.fillMaxWidth().padding(bottom = 4.dp),
                     )
                     MonthNavRow(
                         yearMonth = selectedMonth,

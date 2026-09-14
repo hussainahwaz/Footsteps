@@ -30,6 +30,7 @@ import com.example.workoutcalender.model.CompletionMethod
 import com.example.workoutcalender.model.Tracker
 import com.example.workoutcalender.model.iconFor
 import com.example.workoutcalender.ui.components.BigNumber
+import com.example.workoutcalender.ui.components.EntryHistoryList
 import com.example.workoutcalender.ui.components.GridDisplayMode
 import com.example.workoutcalender.ui.components.MonthGrid
 import com.example.workoutcalender.ui.components.MonthNavRow
@@ -42,7 +43,7 @@ import com.example.workoutcalender.ui.theme.LocalConsistencyColors
 import java.time.LocalDate
 import java.time.YearMonth
 
-private enum class DetailView { MONTHLY, YEARLY }
+private enum class DetailView { MONTHLY, YEARLY, HISTORY }
 
 @Composable
 fun TrackerDetailScreen(
@@ -55,6 +56,9 @@ fun TrackerDetailScreen(
 ) {
     val colors = LocalConsistencyColors.current
     val today = YearMonth.now()
+
+    // History only makes sense for trackers that actually produce entries.
+    val hasHistory = tracker.method == CompletionMethod.DETAILED || tracker.method == CompletionMethod.BOTH
 
     var view by remember { mutableStateOf(DetailView.MONTHLY) }
     var selectedMonth by remember { mutableStateOf(today) }
@@ -110,7 +114,12 @@ fun TrackerDetailScreen(
                 horizontalArrangement = Arrangement.Center,
             ) {
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    listOf(DetailView.MONTHLY to "Monthly", DetailView.YEARLY to "Yearly").forEach { (v, label) ->
+                    val tabs = buildList {
+                        add(DetailView.MONTHLY to "Monthly")
+                        add(DetailView.YEARLY to "Yearly")
+                        if (hasHistory) add(DetailView.HISTORY to "History")
+                    }
+                    tabs.forEach { (v, label) ->
                         val selected = view == v
                         Text(
                             text = label,
@@ -185,6 +194,14 @@ fun TrackerDetailScreen(
                         tracker = tracker,
                         tappable = false,
                         onDayTap = null,
+                    )
+                }
+                DetailView.HISTORY -> Column(
+                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp),
+                ) {
+                    EntryHistoryList(
+                        tracker = tracker,
+                        onOpenEntry = onOpenDetailedEntry,
                     )
                 }
             }
