@@ -125,7 +125,6 @@ fun HomeScreen(
                     OverallMonthGrid(
                         yearMonth = selectedMonth,
                         trackers = trackers,
-                        tileSize = 48.dp,
                         modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
                     )
                 }

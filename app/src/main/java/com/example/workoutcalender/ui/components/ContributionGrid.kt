@@ -46,7 +46,7 @@ fun MonthGrid(
     tracker: Tracker,
     displayMode: GridDisplayMode,
     modifier: Modifier = Modifier,
-    tileSize: Dp = 48.dp,
+    tileSize: Dp? = null, // null = compute responsively from available width; pass a value to force a fixed size
     onDayTap: ((LocalDate) -> Unit)? = null,
     onDayLongPress: ((LocalDate) -> Unit)? = null,
 ) {
@@ -54,69 +54,74 @@ fun MonthGrid(
     val firstOfMonth = yearMonth.atDay(1)
     val daysInMonth = yearMonth.lengthOfMonth()
 
-    // Only NORMAL mode lines days up under weekday columns. Minimal / Super Minimal
-    // are meant to read as a flat, left-packed pattern -- day 1 always starts in the
-    // top-left cell, regardless of what weekday it actually falls on.
     val leadingBlanks = if (displayMode == GridDisplayMode.NORMAL) columnOf(firstOfMonth) else 0
 
-    Column(modifier = modifier) {
-        if (displayMode == GridDisplayMode.NORMAL) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally),
-            ) {
-                WEEKDAY_LABELS.forEach { label ->
-                    Box(Modifier.size(tileSize), contentAlignment = Alignment.Center) {
-                        Text(label, fontFamily = BodyFont, fontSize = 11.sp, color = LocalConsistencyColors.current.textDim)
+    androidx.compose.foundation.layout.BoxWithConstraints(modifier = modifier) {
+        val gap = 6.dp
+        // 7 columns, 6 gaps between them -- solve for the tile size that exactly
+        // fills this container's width, so the grid always fits regardless of
+        // screen size instead of relying on a fixed dp value that only happens
+        // to fit on some devices.
+        val resolvedTileSize = tileSize ?: ((maxWidth - gap * 6) / 7)
+
+        Column {
+            if (displayMode == GridDisplayMode.NORMAL) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(gap, Alignment.CenterHorizontally),
+                ) {
+                    WEEKDAY_LABELS.forEach { label ->
+                        Box(Modifier.size(resolvedTileSize), contentAlignment = Alignment.Center) {
+                            Text(label, fontFamily = BodyFont, fontSize = 11.sp, color = LocalConsistencyColors.current.textDim)
+                        }
                     }
                 }
+                Spacer(Modifier.height(8.dp))
             }
-            Spacer(Modifier.height(8.dp))
-        }
 
-        val totalCells = leadingBlanks + daysInMonth
-        val rows = (totalCells + 6) / 7
+            val totalCells = leadingBlanks + daysInMonth
+            val rows = (totalCells + 6) / 7
 
-        for (row in 0 until rows) {
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(top = if (row == 0) 0.dp else 6.dp),
-                horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally),
-            ) {
-                for (col in 0 until 7) {
-                    val cellIndex = row * 7 + col
-                    val day = cellIndex - leadingBlanks + 1
-                    if (day < 1 || day > daysInMonth) {
-                        Box(Modifier.size(tileSize))
-                        continue
-                    }
-                    val date = yearMonth.atDay(day)
-                    val isToday = date == today
+            for (row in 0 until rows) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(top = if (row == 0) 0.dp else gap),
+                    horizontalArrangement = Arrangement.spacedBy(gap, Alignment.CenterHorizontally),
+                ) {
+                    for (col in 0 until 7) {
+                        val cellIndex = row * 7 + col
+                        val day = cellIndex - leadingBlanks + 1
+                        if (day < 1 || day > daysInMonth) {
+                            Box(Modifier.size(resolvedTileSize))
+                            continue
+                        }
+                        val date = yearMonth.atDay(day)
+                        val isToday = date == today
 
-                    when (displayMode) {
-                        GridDisplayMode.MINIMAL -> NumberTile(
-                            day = day,
-                            filled = tracker.isCompleted(date),
-                            color = tracker.color,
-                            size = tileSize,
-                            isToday = isToday,
-                            onTap = onDayTap?.let { { it(date) } },
-                            onLongPress = onDayLongPress?.let { { it(date) } },
-                        )
-                        GridDisplayMode.SUPER_MINIMAL -> Tile(
-                            filled = tracker.isCompleted(date),
-                            color = tracker.color,
-                            size = tileSize,
-                            cornerRadius = 6.dp,
-                        ) // intentionally not tappable -- this mode is for glancing, not editing
-                        GridDisplayMode.NORMAL -> NumberTile(
-                            day = day,
-                            filled = tracker.isCompleted(date),
-                            color = tracker.color,
-                            size = tileSize,
-                            isToday = isToday,
-                            onTap = onDayTap?.let { { it(date) } },
-                            onLongPress = onDayLongPress?.let { { it(date) } },
-                        )
+                        when (displayMode) {
+                            GridDisplayMode.MINIMAL -> NumberTile(
+                                day = day,
+                                filled = tracker.isCompleted(date),
+                                color = tracker.color,
+                                size = resolvedTileSize,
+                                isToday = isToday,
+                                onTap = onDayTap?.let { { it(date) } },
+                                onLongPress = onDayLongPress?.let { { it(date) } },
+                            )
+                            GridDisplayMode.SUPER_MINIMAL -> Tile(
+                                filled = tracker.isCompleted(date),
+                                color = tracker.color,
+                                size = resolvedTileSize,
+                                cornerRadius = 6.dp,
+                            )
+                            GridDisplayMode.NORMAL -> Tile(
+                                filled = tracker.isCompleted(date),
+                                color = tracker.color,
+                                size = resolvedTileSize,
+                                isToday = isToday,
+                                onTap = onDayTap?.let { { it(date) } },
+                                onLongPress = onDayLongPress?.let { { it(date) } },
+                            )
+                        }
                     }
                 }
             }
@@ -124,17 +129,12 @@ fun MonthGrid(
     }
 }
 
-/**
- * The Home-screen "overall" grid: intensity reflects how many trackers were
- * completed on a given day (0..3+), blended toward a neutral accent -- this
- * answers "how consistent was I", not "how many workouts did I do".
- */
 @Composable
 fun OverallMonthGrid(
     yearMonth: YearMonth,
     trackers: List<Tracker>,
     modifier: Modifier = Modifier,
-    tileSize: Dp = 30.dp,
+    tileSize: Dp? = null, // null = compute responsively from available width
 ) {
     val colors = LocalConsistencyColors.current
     val today = LocalDate.now()
@@ -144,34 +144,39 @@ fun OverallMonthGrid(
     val totalCells = leadingBlanks + daysInMonth
     val rows = (totalCells + 6) / 7
 
-    Column(modifier = modifier) {
-        for (row in 0 until rows) {
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(top = if (row == 0) 0.dp else 6.dp),
-                horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally),
-            ) {
-                for (col in 0 until 7) {
-                    val cellIndex = row * 7 + col
-                    val day = cellIndex - leadingBlanks + 1
-                    if (day < 1 || day > daysInMonth) {
-                        Box(Modifier.size(tileSize))
-                        continue
+    androidx.compose.foundation.layout.BoxWithConstraints(modifier = modifier) {
+        val gap = 6.dp
+        val resolvedTileSize = tileSize ?: ((maxWidth - gap * 6) / 7)
+
+        Column {
+            for (row in 0 until rows) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(top = if (row == 0) 0.dp else gap),
+                    horizontalArrangement = Arrangement.spacedBy(gap, Alignment.CenterHorizontally),
+                ) {
+                    for (col in 0 until 7) {
+                        val cellIndex = row * 7 + col
+                        val day = cellIndex - leadingBlanks + 1
+                        if (day < 1 || day > daysInMonth) {
+                            Box(Modifier.size(resolvedTileSize))
+                            continue
+                        }
+                        val date = yearMonth.atDay(day)
+                        val count = trackers.count { it.isCompleted(date) }
+                        val fraction = when {
+                            count <= 0 -> 0f
+                            count == 1 -> 0.35f
+                            count == 2 -> 0.65f
+                            else -> 1f
+                        }
+                        val fill = lerp(colors.tileEmpty, colors.overallAccent, fraction)
+                        Tile(
+                            filled = count > 0,
+                            color = fill,
+                            size = resolvedTileSize,
+                            isToday = date == today,
+                        )
                     }
-                    val date = yearMonth.atDay(day)
-                    val count = trackers.count { it.isCompleted(date) }
-                    val fraction = when {
-                        count <= 0 -> 0f
-                        count == 1 -> 0.35f
-                        count == 2 -> 0.65f
-                        else -> 1f
-                    }
-                    val fill = lerp(colors.tileEmpty, colors.overallAccent, fraction)
-                    Tile(
-                        filled = count > 0,
-                        color = fill,
-                        size = tileSize,
-                        isToday = date == today,
-                    )
                 }
             }
         }
