@@ -74,7 +74,7 @@ class TrackerState(
         update(trackers.map { if (it.id == trackerId) it.withEntry(date, entry) else it })
     }
 
-    fun addTracker(name: String, icon: String, color: Color, method: CompletionMethod, targetPerWeek: Int) {
+    fun addTracker(name: String, icon: String, color: Color, method: CompletionMethod, targetPerWeek: Int, includeInOverall: Boolean) {
         update(
             trackers + Tracker(
                 id = "$name-${System.currentTimeMillis()}",
@@ -83,15 +83,16 @@ class TrackerState(
                 color = color,
                 method = method,
                 targetPerWeek = targetPerWeek,
+                includeInOverall = includeInOverall,
             ),
         )
     }
 
-    fun updateTracker(trackerId: String, name: String, icon: String, color: Color, method: CompletionMethod, targetPerWeek: Int) {
+    fun updateTracker(trackerId: String, name: String, icon: String, color: Color, method: CompletionMethod, targetPerWeek: Int, includeInOverall: Boolean) {
         update(
             trackers.map {
                 if (it.id == trackerId) {
-                    it.copy(name = name, icon = icon, color = color, method = method, targetPerWeek = targetPerWeek)
+                    it.copy(name = name, icon = icon, color = color, method = method, targetPerWeek = targetPerWeek, includeInOverall = includeInOverall)
                 } else it
             },
         )
@@ -252,8 +253,8 @@ fun ConsistencyApp(
 
                     Screen.CreateTracker -> CreateTrackerScreen(
                         onBack = ::pop,
-                        onCreate = { name, icon, color, method, targetPerWeek ->
-                            state.addTracker(name, icon, color, method, targetPerWeek)
+                        onCreate = { name, icon, color, method, targetPerWeek, includeInOverall ->
+                            state.addTracker(name, icon, color, method, targetPerWeek, includeInOverall)
                             pop()
                         },
                     )
@@ -264,8 +265,8 @@ fun ConsistencyApp(
                             EditTrackerScreen(
                                 tracker = tracker,
                                 onBack = ::pop,
-                                onSave = { name, icon, color, method, targetPerWeek ->
-                                    state.updateTracker(tracker.id, name, icon, color, method, targetPerWeek)
+                                onSave = { name, icon, color, method, targetPerWeek, includeInOverall ->
+                                    state.updateTracker(tracker.id, name, icon, color, method, targetPerWeek, includeInOverall)
                                     pop()
                                 },
                             )

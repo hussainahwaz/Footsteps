@@ -47,9 +47,10 @@ private data class TrackerDto(
     val name: String,
     val icon: String,
     val colorArgb: Int,
-    val method: String, // CompletionMethod.name
-    val targetPerWeek: Int = 7, // defaults to 7 (daily) so old saved JSON without this key still decodes fine
-    val completedDates: List<String> = emptyList(), // LocalDate.toString(), ISO-8601
+    val method: String,
+    val targetPerWeek: Int = 7,
+    val includeInOverall: Boolean = true, // defaults true so old saved JSON without this key decodes unaffected
+    val completedDates: List<String> = emptyList(),
     val entries: Map<String, TrackerEntryDto> = emptyMap(),
 )
 
@@ -60,6 +61,7 @@ private fun Tracker.toDto(): TrackerDto = TrackerDto(
     colorArgb = color.toArgb(),
     method = method.name,
     targetPerWeek = targetPerWeek,
+    includeInOverall = includeInOverall,
     completedDates = completedDates.map { it.toString() },
     entries = entries.mapKeys { it.key.toString() }.mapValues { (_, entry) ->
         TrackerEntryDto(
@@ -76,6 +78,7 @@ private fun TrackerDto.toDomain(): Tracker = Tracker(
     color = Color(colorArgb),
     method = CompletionMethod.valueOf(method),
     targetPerWeek = targetPerWeek,
+    includeInOverall = includeInOverall,
     completedDates = completedDates.map { LocalDate.parse(it) }.toSet(),
     entries = entries.mapKeys { LocalDate.parse(it.key) }.mapValues { (_, dto) ->
         TrackerEntry(

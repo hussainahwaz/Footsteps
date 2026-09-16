@@ -3,6 +3,7 @@ package com.example.workoutcalender.ui.screens
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
@@ -14,7 +15,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Menu
@@ -41,6 +41,7 @@ import com.example.workoutcalender.ui.components.ReorderableTrackerList
 import com.example.workoutcalender.ui.theme.BodyFont
 import com.example.workoutcalender.ui.theme.DisplayFont
 import com.example.workoutcalender.ui.theme.LocalConsistencyColors
+import com.example.workoutcalender.ui.theme.OverallGoldAccent
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -104,7 +105,12 @@ fun TrackersScreen(
                         modifier = Modifier
                             .size(40.dp)
                             .clip(RoundedCornerShape(12.dp))
-                            .background(tracker.color),
+                            .background(tracker.color)
+                            .then(
+                                if (tracker.includeInOverall) {
+                                    Modifier.border(2.dp, OverallGoldAccent, RoundedCornerShape(12.dp))
+                                } else Modifier
+                            ),
                         contentAlignment = Alignment.Center,
                     ) {
                         Icon(

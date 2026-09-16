@@ -43,9 +43,9 @@ internal val TRACKER_FORM_PALETTE = listOf(
 )
 
 /**
- * Shared name/icon/color/method/frequency form used by both CreateTrackerScreen
- * and EditTrackerScreen -- only the screen title, starting values, and submit
- * label/callback differ between the two.
+ * Shared name/icon/color/method/frequency/overview-visibility form used by both
+ * CreateTrackerScreen and EditTrackerScreen -- only the screen title, starting
+ * values, and submit label/callback differ between the two.
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -56,9 +56,10 @@ internal fun TrackerForm(
     initialColor: Color,
     initialMethod: CompletionMethod,
     initialTargetPerWeek: Int,
+    initialIncludeInOverall: Boolean,
     submitLabel: String,
     onBack: () -> Unit,
-    onSubmit: (name: String, icon: String, color: Color, method: CompletionMethod, targetPerWeek: Int) -> Unit,
+    onSubmit: (name: String, icon: String, color: Color, method: CompletionMethod, targetPerWeek: Int, includeInOverall: Boolean) -> Unit,
 ) {
     val colors = LocalConsistencyColors.current
     var name by remember { mutableStateOf(initialName) }
@@ -66,6 +67,7 @@ internal fun TrackerForm(
     var color by remember { mutableStateOf(initialColor) }
     var method by remember { mutableStateOf(initialMethod) }
     var targetPerWeek by remember { mutableStateOf(initialTargetPerWeek) }
+    var includeInOverall by remember { mutableStateOf(initialIncludeInOverall) }
     var selectedPreset by remember { mutableStateOf<String?>(null) }
 
     LazyColumn(
@@ -188,6 +190,36 @@ internal fun TrackerForm(
                     }
                 }
 
+                SectionLabel("HOME SCREEN", topPadding = 22.dp)
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .border(1.dp, colors.border, RoundedCornerShape(12.dp))
+                        .clickable { includeInOverall = !includeInOverall }
+                        .padding(horizontal = 15.dp, vertical = 13.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("Show on Home overview", fontFamily = BodyFont, fontWeight = FontWeight.Medium, fontSize = 14.sp, color = colors.text)
+                        Text(
+                            "Counts toward Home's active days and overall grid",
+                            fontFamily = BodyFont,
+                            fontSize = 12.sp,
+                            color = colors.textDim,
+                            modifier = Modifier.padding(top = 2.dp),
+                        )
+                    }
+                    Column(
+                        modifier = Modifier
+                            .size(18.dp)
+                            .clip(CircleShape)
+                            .background(if (includeInOverall) color else Color.Transparent)
+                            .border(2.dp, if (includeInOverall) color else colors.border, CircleShape),
+                    ) {}
+                }
+
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -195,7 +227,7 @@ internal fun TrackerForm(
                         .clip(RoundedCornerShape(14.dp))
                         .background(if (name.isNotBlank()) color else colors.border)
                         .clickable(enabled = name.isNotBlank()) {
-                            onSubmit(name.trim(), icon, color, method, targetPerWeek)
+                            onSubmit(name.trim(), icon, color, method, targetPerWeek, includeInOverall)
                         }
                         .padding(15.dp),
                     horizontalArrangement = Arrangement.Center,

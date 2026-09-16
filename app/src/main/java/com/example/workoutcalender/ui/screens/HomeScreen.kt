@@ -5,6 +5,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -40,6 +41,7 @@ import com.example.workoutcalender.ui.components.Tile
 import com.example.workoutcalender.ui.components.YearNavRow
 import com.example.workoutcalender.ui.theme.BodyFont
 import com.example.workoutcalender.ui.theme.LocalConsistencyColors
+import com.example.workoutcalender.ui.theme.OverallGoldAccent
 import java.time.LocalDate
 import java.time.YearMonth
 import java.time.format.TextStyle
@@ -62,7 +64,9 @@ fun HomeScreen(
     var selectedMonth by remember { mutableStateOf(today) }
     var selectedYear by remember { mutableStateOf(today.year) }
 
-    val activeDays = trackers.flatMap { it.completedDates }
+    val overallTrackers = trackers.filter { it.includeInOverall }
+
+    val activeDays = overallTrackers.flatMap { it.completedDates }
         .filter { it.year == selectedMonth.year && it.monthValue == selectedMonth.monthValue }
         .distinct()
         .size
@@ -121,7 +125,7 @@ fun HomeScreen(
                 item {
                     OverallMonthGrid(
                         yearMonth = selectedMonth,
-                        trackers = trackers,
+                        trackers = overallTrackers,
                         modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
                     )
                 }
@@ -166,7 +170,7 @@ fun HomeScreen(
                 item {
                     OverallYearlyGrid(
                         year = selectedYear,
-                        trackers = trackers,
+                        trackers = overallTrackers,
                         modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 12.dp),
                     )
                 }
@@ -198,12 +202,24 @@ private fun TrackerRow(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Icon(
-                imageVector = iconFor(tracker.icon),
-                contentDescription = null,
-                tint = tracker.color,
-                modifier = Modifier.size(20.dp),
-            )
+            Box(
+                modifier = Modifier
+                    .size(28.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .then(
+                        if (tracker.includeInOverall) {
+                            Modifier.border(2.dp, OverallGoldAccent, RoundedCornerShape(8.dp))
+                        } else Modifier
+                    ),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    imageVector = iconFor(tracker.icon),
+                    contentDescription = null,
+                    tint = tracker.color,
+                    modifier = Modifier.size(20.dp),
+                )
+            }
             Text(tracker.name, fontFamily = BodyFont, fontWeight = FontWeight.Medium, fontSize = 15.sp, color = colors.text)
         }
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {

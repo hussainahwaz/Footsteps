@@ -16,6 +16,9 @@ import androidx.compose.ui.unit.sp
 val DisplayFont = FontFamily.SansSerif
 val BodyFont = FontFamily.SansSerif
 
+/** Fixed accent used to mark trackers that contribute to Home's overview -- constant across all 5 color themes and both light/dark, so it reads consistently as "this is opted into the overview" regardless of the active theme. */
+val OverallGoldAccent = Color(0xFFD4AF37)
+
 /** App-specific palette that doesn't map cleanly onto Material's color roles. */
 data class ConsistencyColors(
     val background: Color,

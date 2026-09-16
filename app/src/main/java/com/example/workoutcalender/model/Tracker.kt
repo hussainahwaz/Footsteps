@@ -27,16 +27,17 @@ data class TrackerEntry(
 data class Tracker(
     val id: String,
     val name: String,
-    val icon: String, // a key into TrackerIcons.kt's registry, e.g. "workout" -- not an emoji
+    val icon: String,
     val color: Color,
     val method: CompletionMethod,
-    /**
-     * How many days a week this needs to be done to "count" -- 7 means every day
-     * (the original, implicit behavior, and the default so existing trackers are
-     * unaffected). Anything less (e.g. 3) makes this a non-daily goal like
-     * "3x a week", which changes what a streak means: see [currentStreak].
-     */
     val targetPerWeek: Int = 7,
+    /**
+     * Whether this tracker counts toward Home's overall "active days" number and
+     * blended intensity grid. Defaults to true so every existing tracker keeps
+     * contributing unless someone explicitly opts it out (e.g. a low-priority
+     * habit they don't want skewing the main overview).
+     */
+    val includeInOverall: Boolean = true,
     val completedDates: Set<LocalDate> = emptySet(),
     val entries: Map<LocalDate, TrackerEntry> = emptyMap(),
 ) {
