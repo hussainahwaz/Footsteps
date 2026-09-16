@@ -108,7 +108,7 @@ fun HomeScreen(
                     BigNumber(
                         value = activeDays,
                         label = "ACTIVE DAYS",
-                        modifier = Modifier.fillMaxWidth().padding(bottom = 4.dp),
+                        modifier = Modifier.fillMaxWidth().padding(top = 60.dp, bottom = 4.dp),
                     )
                     MonthNavRow(
                         yearMonth = selectedMonth,
@@ -119,14 +119,38 @@ fun HomeScreen(
                     )
                 }
                 item {
-                    // The Home overall grid always shows multi-tracker intensity, regardless
-                    // of the per-tracker display mode setting — that setting only affects
-                    // the per-tracker screens where a single tracker's own tiles are shown.
                     OverallMonthGrid(
                         yearMonth = selectedMonth,
                         trackers = trackers,
                         modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
                     )
+                }
+                item {
+                    ReorderableTrackerList(
+                        trackers = trackers,
+                        onMove = onReorder,
+                    ) { _, tracker, dragHandleModifier ->
+                        TrackerRow(
+                            tracker = tracker,
+                            onOpen = { onOpenTracker(tracker) },
+                            onToggleToday = { onToggleToday(tracker) },
+                            dragHandleModifier = dragHandleModifier,
+                            modifier = Modifier.padding(bottom = 10.dp),
+                        )
+                    }
+                }
+                item {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(14.dp))
+                            .border(1.dp, colors.border, RoundedCornerShape(14.dp))
+                            .clickable(onClick = onAddTracker)
+                            .padding(16.dp),
+                        horizontalArrangement = Arrangement.Center,
+                    ) {
+                        Text("+ Add Tracker", fontFamily = BodyFont, fontWeight = FontWeight.Medium, fontSize = 14.sp, color = colors.textDim)
+                    }
                 }
             }
             HomeView.YEARLY -> {
@@ -146,35 +170,6 @@ fun HomeScreen(
                         modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 12.dp),
                     )
                 }
-            }
-        }
-
-        item {
-            ReorderableTrackerList(
-                trackers = trackers,
-                onMove = onReorder,
-            ) { _, tracker, dragHandleModifier ->
-                TrackerRow(
-                    tracker = tracker,
-                    onOpen = { onOpenTracker(tracker) },
-                    onToggleToday = { onToggleToday(tracker) },
-                    dragHandleModifier = dragHandleModifier,
-                    modifier = Modifier.padding(bottom = 10.dp),
-                )
-            }
-        }
-
-        item {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(14.dp))
-                    .border(1.dp, colors.border, RoundedCornerShape(14.dp))
-                    .clickable(onClick = onAddTracker)
-                    .padding(16.dp),
-                horizontalArrangement = Arrangement.Center,
-            ) {
-                Text("+ Add Tracker", fontFamily = BodyFont, fontWeight = FontWeight.Medium, fontSize = 14.sp, color = colors.textDim)
             }
         }
     }
