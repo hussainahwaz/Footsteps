@@ -21,6 +21,7 @@ import androidx.compose.runtime.toMutableStateList
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -42,10 +43,10 @@ fun DetailedEntryScreen(
 ) {
     val colors = LocalConsistencyColors.current
     val existing = tracker.entries[date]
-    val rows = remember {
-        (existing?.items?.takeIf { it.isNotEmpty() } ?: listOf(EntryItem("Squats", "3 × 5"), EntryItem("Push-ups", "3 × 5")))
-            .toMutableStateList()
-    }
+    // Starts genuinely empty -- no seeded rows -- so the form doesn't imply this
+    // tracker is specifically for workouts. The dimmed hint below fills that gap
+    // visually without putting fake data into the actual entry.
+    val rows = remember { (existing?.items ?: emptyList()).toMutableStateList() }
     var notes by remember { mutableStateOf(existing?.notes ?: "") }
     val dateLabel = date.format(DateTimeFormatter.ofPattern("MMM d"))
 
@@ -56,29 +57,54 @@ fun DetailedEntryScreen(
 
         item {
             Column(modifier = Modifier.padding(horizontal = 20.dp)) {
-                rows.forEachIndexed { index, item ->
+                if (rows.isEmpty()) {
                     Row(
                         modifier = Modifier.fillMaxWidth().padding(bottom = 10.dp),
                         horizontalArrangement = Arrangement.spacedBy(10.dp),
                     ) {
-                        OutlinedTextField(
-                            value = item.name,
-                            onValueChange = { rows[index] = item.copy(name = it) },
+                        Text(
+                            text = "e.g. Laps",
+                            fontFamily = BodyFont,
+                            fontStyle = FontStyle.Italic,
+                            fontSize = 14.sp,
+                            color = colors.textDim,
                             modifier = Modifier.weight(1.2f),
-                            singleLine = true,
                         )
-                        OutlinedTextField(
-                            value = item.value,
-                            onValueChange = { rows[index] = item.copy(value = it) },
-                            placeholder = { Text("3 × 5", fontFamily = BodyFont) },
+                        Text(
+                            text = "e.g. 20",
+                            fontFamily = BodyFont,
+                            fontStyle = FontStyle.Italic,
+                            fontSize = 14.sp,
+                            color = colors.textDim,
                             modifier = Modifier.weight(1f),
-                            singleLine = true,
                         )
+                    }
+                } else {
+                    rows.forEachIndexed { index, item ->
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(bottom = 10.dp),
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        ) {
+                            OutlinedTextField(
+                                value = item.name,
+                                onValueChange = { rows[index] = item.copy(name = it) },
+                                placeholder = { Text("Label", fontFamily = BodyFont) },
+                                modifier = Modifier.weight(1.2f),
+                                singleLine = true,
+                            )
+                            OutlinedTextField(
+                                value = item.value,
+                                onValueChange = { rows[index] = item.copy(value = it) },
+                                placeholder = { Text("Value", fontFamily = BodyFont) },
+                                modifier = Modifier.weight(1f),
+                                singleLine = true,
+                            )
+                        }
                     }
                 }
 
                 Text(
-                    text = "+ Add exercise",
+                    text = "+ Add detail",
                     fontFamily = BodyFont,
                     fontWeight = FontWeight.Medium,
                     fontSize = 13.sp,
@@ -100,7 +126,7 @@ fun DetailedEntryScreen(
                 OutlinedTextField(
                     value = notes,
                     onValueChange = { notes = it },
-                    placeholder = { Text("Felt good today.", fontFamily = BodyFont) },
+                    placeholder = { Text("How did it go?", fontFamily = BodyFont) },
                     modifier = Modifier.fillMaxWidth(),
                     minLines = 3,
                 )
