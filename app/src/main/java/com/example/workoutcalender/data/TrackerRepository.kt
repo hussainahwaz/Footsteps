@@ -49,7 +49,8 @@ private data class TrackerDto(
     val colorArgb: Int,
     val method: String,
     val targetPerWeek: Int = 7,
-    val includeInOverall: Boolean = true, // defaults true so old saved JSON without this key decodes unaffected
+    val intervalDays: Int? = null, // null for old saved JSON -- defaults every tracker to weekly/daily as before
+    val includeInOverall: Boolean = true,
     val completedDates: List<String> = emptyList(),
     val entries: Map<String, TrackerEntryDto> = emptyMap(),
 )
@@ -61,6 +62,7 @@ private fun Tracker.toDto(): TrackerDto = TrackerDto(
     colorArgb = color.toArgb(),
     method = method.name,
     targetPerWeek = targetPerWeek,
+    intervalDays = intervalDays,
     includeInOverall = includeInOverall,
     completedDates = completedDates.map { it.toString() },
     entries = entries.mapKeys { it.key.toString() }.mapValues { (_, entry) ->
@@ -78,6 +80,7 @@ private fun TrackerDto.toDomain(): Tracker = Tracker(
     color = Color(colorArgb),
     method = CompletionMethod.valueOf(method),
     targetPerWeek = targetPerWeek,
+    intervalDays = intervalDays,
     includeInOverall = includeInOverall,
     completedDates = completedDates.map { LocalDate.parse(it) }.toSet(),
     entries = entries.mapKeys { LocalDate.parse(it.key) }.mapValues { (_, dto) ->

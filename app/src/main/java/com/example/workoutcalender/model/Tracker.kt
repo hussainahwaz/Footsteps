@@ -2,23 +2,15 @@ package com.example.workoutcalender.model
 
 import androidx.compose.ui.graphics.Color
 import java.time.LocalDate
+import java.time.temporal.ChronoUnit
 
-/**
- * How a tracker records a day as done.
- *
- * QUICK    -> tapping a tile toggles it instantly.
- * DETAILED -> tapping a tile opens the entry screen.
- * BOTH     -> a normal tap toggles it, a long-press opens the entry screen.
- */
 enum class CompletionMethod { QUICK, DETAILED, BOTH }
 
-/** One line item inside a detailed entry, e.g. "Squats" / "3 × 5". */
 data class EntryItem(
     val name: String,
     val value: String,
 )
 
-/** The optional detailed log saved for a specific date. */
 data class TrackerEntry(
     val items: List<EntryItem> = emptyList(),
     val notes: String = "",
@@ -30,18 +22,25 @@ data class Tracker(
     val icon: String,
     val color: Color,
     val method: CompletionMethod,
+    /**
+     * How many days a week this needs to be done -- 7 means daily. Ignored when
+     * [intervalDays] is set; a tracker is either weekly-goal-based or interval-based,
+     * never both.
+     */
     val targetPerWeek: Int = 7,
     /**
-     * Whether this tracker counts toward Home's overall "active days" number and
-     * blended intensity grid. Defaults to true so every existing tracker keeps
-     * contributing unless someone explicitly opts it out (e.g. a low-priority
-     * habit they don't want skewing the main overview).
+     * For habits that don't fit a weekly cadence at all -- e.g. medicine taken every
+     * 15 days. When non-null, this overrides [targetPerWeek] entirely: streaks become
+     * "consecutive on-time doses" rather than "consecutive days/weeks", and stats
+     * show a next-due date instead of weekly progress.
      */
+    val intervalDays: Int? = null,
     val includeInOverall: Boolean = true,
     val completedDates: Set<LocalDate> = emptySet(),
     val entries: Map<LocalDate, TrackerEntry> = emptyMap(),
 ) {
-    val isDailyGoal: Boolean get() = targetPerWeek >= 7
+    val isIntervalGoal: Boolean get() = intervalDays != null
+    val isDailyGoal: Boolean get() = !isIntervalGoal && targetPerWeek >= 7
 
     fun isCompleted(date: LocalDate) = completedDates.contains(date)
 
@@ -56,21 +55,52 @@ data class Tracker(
             entries = entries + (date to entry),
         )
 
-    /** Completions within the Sunday-Saturday week containing [date]. */
+    /** Completions within the Sunday-Saturday week containing [date]. Only meaningful for weekly-goal trackers. */
     fun completedInWeek(date: LocalDate = LocalDate.now()): Int {
         val start = weekStartOf(date)
         val end = start.plusDays(6)
         return completedDates.count { it >= start && it <= end }
     }
 
+    /** When the next dose/entry is due, for interval-based trackers. Null if never logged or not an interval tracker. */
+    fun nextDueDate(): LocalDate? {
+        val interval = intervalDays ?: return null
+        val last = completedDates.maxOrNull() ?: return null
+        return last.plusDays(interval.toLong())
+    }
+
+    /** Days remaining until due (negative if overdue). Null if never logged or not an interval tracker. */
+    fun daysUntilDue(today: LocalDate = LocalDate.now()): Long? {
+        val due = nextDueDate() ?: return null
+        return ChronoUnit.DAYS.between(today, due)
+    }
+
+    fun isOverdue(today: LocalDate = LocalDate.now()): Boolean {
+        val days = daysUntilDue(today) ?: return false
+        return days < 0
+    }
+
     /**
-     * Daily goals: consecutive days ending today, same as before.
-     * Non-daily goals: consecutive weeks (Sun-Sat) that hit [targetPerWeek].
-     * The current in-progress week only joins the streak once it has actually
-     * met the target -- falling short *so far* isn't a broken streak, it just
-     * isn't finished yet, so we look at last week instead until it resolves.
+     * Daily goals: consecutive days ending today.
+     * Weekly goals: consecutive weeks (Sun-Sat) that hit [targetPerWeek] -- the current
+     * in-progress week only joins once it has actually met the target.
+     * Interval goals: consecutive doses whose gap from the previous dose was within
+     * [intervalDays] -- broken to 0 the moment the tracker becomes overdue.
      */
     fun currentStreak(today: LocalDate = LocalDate.now()): Int {
+        if (isIntervalGoal) {
+            val interval = intervalDays!!
+            val sorted = completedDates.sorted()
+            if (sorted.isEmpty()) return 0
+            if (isOverdue(today)) return 0
+            var streak = 1
+            for (i in sorted.size - 1 downTo 1) {
+                val gap = ChronoUnit.DAYS.between(sorted[i - 1], sorted[i])
+                if (gap <= interval) streak++ else break
+            }
+            return streak
+        }
+
         if (isDailyGoal) {
             var streak = 0
             var day = today
@@ -95,6 +125,19 @@ data class Tracker(
 
     fun bestStreak(): Int {
         if (completedDates.isEmpty()) return 0
+
+        if (isIntervalGoal) {
+            val interval = intervalDays!!
+            val sorted = completedDates.sorted()
+            var best = 1
+            var run = 1
+            for (i in 1 until sorted.size) {
+                val gap = ChronoUnit.DAYS.between(sorted[i - 1], sorted[i])
+                run = if (gap <= interval) run + 1 else 1
+                best = maxOf(best, run)
+            }
+            return best
+        }
 
         if (isDailyGoal) {
             val sorted = completedDates.sorted()
@@ -125,11 +168,10 @@ data class Tracker(
 
 /** Sunday-first week start for a date -- matches ContributionGrid.kt's Sunday-first columns. */
 private fun weekStartOf(date: LocalDate): LocalDate {
-    val col = date.dayOfWeek.value % 7 // Mon=1..Sun=7 -> Sun=0..Sat=6
+    val col = date.dayOfWeek.value % 7
     return date.minusDays(col.toLong())
 }
 
-/** Starter presets shown on the "Create Tracker" screen. */
 object TrackerPresets {
     data class Preset(val name: String, val icon: String, val color: Color)
 

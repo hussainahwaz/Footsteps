@@ -28,6 +28,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.workoutcalender.model.CompletionMethod
@@ -42,8 +43,10 @@ internal val TRACKER_FORM_PALETTE = listOf(
     Color(0xFFC68A3E), Color(0xFFB25A4A), Color(0xFF7B6BA8), Color(0xFF8A7B9C),
 )
 
+private enum class GoalMode { WEEKLY, INTERVAL }
+
 /**
- * Shared name/icon/color/method/frequency/overview-visibility form used by both
+ * Shared name/icon/color/method/goal/overview-visibility form used by both
  * CreateTrackerScreen and EditTrackerScreen -- only the screen title, starting
  * values, and submit label/callback differ between the two.
  */
@@ -56,17 +59,20 @@ internal fun TrackerForm(
     initialColor: Color,
     initialMethod: CompletionMethod,
     initialTargetPerWeek: Int,
+    initialIntervalDays: Int?,
     initialIncludeInOverall: Boolean,
     submitLabel: String,
     onBack: () -> Unit,
-    onSubmit: (name: String, icon: String, color: Color, method: CompletionMethod, targetPerWeek: Int, includeInOverall: Boolean) -> Unit,
+    onSubmit: (name: String, icon: String, color: Color, method: CompletionMethod, targetPerWeek: Int, intervalDays: Int?, includeInOverall: Boolean) -> Unit,
 ) {
     val colors = LocalConsistencyColors.current
     var name by remember { mutableStateOf(initialName) }
     var icon by remember { mutableStateOf(initialIcon) }
     var color by remember { mutableStateOf(initialColor) }
     var method by remember { mutableStateOf(initialMethod) }
+    var goalMode by remember { mutableStateOf(if (initialIntervalDays != null) GoalMode.INTERVAL else GoalMode.WEEKLY) }
     var targetPerWeek by remember { mutableStateOf(initialTargetPerWeek) }
+    var intervalDaysText by remember { mutableStateOf((initialIntervalDays ?: 15).toString()) }
     var includeInOverall by remember { mutableStateOf(initialIncludeInOverall) }
     var selectedPreset by remember { mutableStateOf<String?>(null) }
 
@@ -168,25 +174,72 @@ internal fun TrackerForm(
                     }
                 }
 
-                SectionLabel("GOAL FREQUENCY", topPadding = 22.dp)
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    listOf(1, 2, 3, 4, 5, 6, 7).forEach { n ->
-                        val selected = targetPerWeek == n
+                SectionLabel("GOAL TYPE", topPadding = 22.dp)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf(GoalMode.WEEKLY to "Weekly goal", GoalMode.INTERVAL to "Custom interval").forEach { (mode, label) ->
+                        val selected = goalMode == mode
                         Row(
                             modifier = Modifier
                                 .clip(RoundedCornerShape(20.dp))
                                 .background(if (selected) color.copy(alpha = 0.15f) else Color.Transparent)
                                 .border(1.dp, if (selected) color else colors.border, RoundedCornerShape(20.dp))
-                                .clickable { targetPerWeek = n }
+                                .clickable { goalMode = mode }
                                 .padding(horizontal = 13.dp, vertical = 9.dp),
                         ) {
-                            Text(
-                                text = if (n == 7) "Daily" else "${n}x / week",
-                                fontFamily = BodyFont,
-                                fontSize = 13.sp,
-                                color = colors.text,
-                            )
+                            Text(label, fontFamily = BodyFont, fontSize = 13.sp, color = colors.text)
                         }
+                    }
+                }
+
+                when (goalMode) {
+                    GoalMode.WEEKLY -> {
+                        FlowRow(
+                            modifier = Modifier.padding(top = 10.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            listOf(1, 2, 3, 4, 5, 6, 7).forEach { n ->
+                                val selected = targetPerWeek == n
+                                Row(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(20.dp))
+                                        .background(if (selected) color.copy(alpha = 0.15f) else Color.Transparent)
+                                        .border(1.dp, if (selected) color else colors.border, RoundedCornerShape(20.dp))
+                                        .clickable { targetPerWeek = n }
+                                        .padding(horizontal = 13.dp, vertical = 9.dp),
+                                ) {
+                                    Text(
+                                        text = if (n == 7) "Daily" else "${n}x / week",
+                                        fontFamily = BodyFont,
+                                        fontSize = 13.sp,
+                                        color = colors.text,
+                                    )
+                                }
+                            }
+                        }
+                    }
+                    GoalMode.INTERVAL -> {
+                        Row(
+                            modifier = Modifier.padding(top = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        ) {
+                            Text("Every", fontFamily = BodyFont, fontSize = 14.sp, color = colors.text)
+                            OutlinedTextField(
+                                value = intervalDaysText,
+                                onValueChange = { new -> if (new.all { it.isDigit() }) intervalDaysText = new },
+                                modifier = Modifier.size(width = 70.dp, height = 56.dp),
+                                singleLine = true,
+                                keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = KeyboardType.Number),
+                            )
+                            Text("days", fontFamily = BodyFont, fontSize = 14.sp, color = colors.text)
+                        }
+                        Text(
+                            text = "Good for things like medicine that isn't taken daily or weekly.",
+                            fontFamily = BodyFont,
+                            fontSize = 12.sp,
+                            color = colors.textDim,
+                            modifier = Modifier.padding(top = 6.dp),
+                        )
                     }
                 }
 
@@ -227,7 +280,10 @@ internal fun TrackerForm(
                         .clip(RoundedCornerShape(14.dp))
                         .background(if (name.isNotBlank()) color else colors.border)
                         .clickable(enabled = name.isNotBlank()) {
-                            onSubmit(name.trim(), icon, color, method, targetPerWeek, includeInOverall)
+                            val resolvedInterval = if (goalMode == GoalMode.INTERVAL) {
+                                intervalDaysText.toIntOrNull()?.coerceAtLeast(1) ?: 15
+                            } else null
+                            onSubmit(name.trim(), icon, color, method, targetPerWeek, resolvedInterval, includeInOverall)
                         }
                         .padding(15.dp),
                     horizontalArrangement = Arrangement.Center,

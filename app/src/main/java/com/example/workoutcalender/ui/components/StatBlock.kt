@@ -11,6 +11,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -18,20 +19,16 @@ import com.example.workoutcalender.model.Tracker
 import com.example.workoutcalender.ui.theme.BodyFont
 import com.example.workoutcalender.ui.theme.DisplayFont
 import com.example.workoutcalender.ui.theme.LocalConsistencyColors
+import java.time.format.DateTimeFormatter
 import java.time.YearMonth
 
-/**
- * Statistics grid: this month / total completed / current streak / best streak,
- * plus a "this week" progress box for non-daily goals. Matches the bordered-box
- * style used for the reference screenshot.
- */
 @Composable
 fun StatBlock(tracker: Tracker, modifier: Modifier = Modifier) {
     val now = YearMonth.now()
     val thisMonth = tracker.completedInMonth(now.year, now.monthValue)
     val total = tracker.completedDates.size
-    val current = remember(tracker.completedDates, tracker.targetPerWeek) { tracker.currentStreak() }
-    val best = remember(tracker.completedDates, tracker.targetPerWeek) { tracker.bestStreak() }
+    val current = remember(tracker.completedDates, tracker.targetPerWeek, tracker.intervalDays) { tracker.currentStreak() }
+    val best = remember(tracker.completedDates, tracker.targetPerWeek, tracker.intervalDays) { tracker.bestStreak() }
 
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Text(
@@ -42,7 +39,23 @@ fun StatBlock(tracker: Tracker, modifier: Modifier = Modifier) {
             color = LocalConsistencyColors.current.textDim,
         )
 
-        if (!tracker.isDailyGoal) {
+        if (tracker.isIntervalGoal) {
+            val overdue = tracker.isOverdue()
+            val daysUntil = tracker.daysUntilDue()
+            val nextDue = tracker.nextDueDate()
+            val dueLabel = when {
+                nextDue == null -> "Log your first dose"
+                overdue -> "Overdue by ${-(daysUntil ?: 0)} day${if (-(daysUntil ?: 0) == 1L) "" else "s"}"
+                daysUntil == 0L -> "Due today"
+                else -> "Due in $daysUntil day${if (daysUntil == 1L) "" else "s"}"
+            }
+            StatBox(
+                label = if (nextDue != null) "Next due — ${nextDue.format(DateTimeFormatter.ofPattern("MMM d"))}" else "Next due",
+                displayValue = dueLabel,
+                modifier = Modifier.fillMaxWidth(),
+                valueColor = if (overdue) Color(0xFFB4483E) else LocalConsistencyColors.current.text,
+            )
+        } else if (!tracker.isDailyGoal) {
             StatBox(
                 label = "This week",
                 displayValue = "${tracker.completedInWeek()}/${tracker.targetPerWeek}",
@@ -55,14 +68,27 @@ fun StatBlock(tracker: Tracker, modifier: Modifier = Modifier) {
             StatBox("Total completed", "$total", Modifier.weight(1f))
         }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            StatBox(if (tracker.isDailyGoal) "Current streak" else "Week streak", "$current", Modifier.weight(1f))
-            StatBox(if (tracker.isDailyGoal) "Best streak" else "Best week streak", "$best", Modifier.weight(1f))
+            StatBox(
+                label = if (tracker.isIntervalGoal) "On-time streak" else if (tracker.isDailyGoal) "Current streak" else "Week streak",
+                displayValue = "$current",
+                modifier = Modifier.weight(1f),
+            )
+            StatBox(
+                label = if (tracker.isIntervalGoal) "Best on-time streak" else if (tracker.isDailyGoal) "Best streak" else "Best week streak",
+                displayValue = "$best",
+                modifier = Modifier.weight(1f),
+            )
         }
     }
 }
 
 @Composable
-private fun StatBox(label: String, displayValue: String, modifier: Modifier = Modifier) {
+private fun StatBox(
+    label: String,
+    displayValue: String,
+    modifier: Modifier = Modifier,
+    valueColor: Color? = null,
+) {
     val colors = LocalConsistencyColors.current
     Column(
         modifier = modifier
@@ -75,7 +101,7 @@ private fun StatBox(label: String, displayValue: String, modifier: Modifier = Mo
             fontFamily = DisplayFont,
             fontWeight = FontWeight.Bold,
             fontSize = 26.sp,
-            color = colors.text,
+            color = valueColor ?: colors.text,
             modifier = Modifier.padding(top = 2.dp),
         )
     }
