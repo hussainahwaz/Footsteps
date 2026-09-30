@@ -58,10 +58,6 @@ fun MonthGrid(
 
     androidx.compose.foundation.layout.BoxWithConstraints(modifier = modifier) {
         val gap = 6.dp
-        // 7 columns, 6 gaps between them -- solve for the tile size that exactly
-        // fills this container's width, so the grid always fits regardless of
-        // screen size instead of relying on a fixed dp value that only happens
-        // to fit on some devices.
         val resolvedTileSize = tileSize ?: ((maxWidth - gap * 6) / 7)
 
         Column {
@@ -113,7 +109,8 @@ fun MonthGrid(
                                 size = resolvedTileSize,
                                 cornerRadius = 6.dp,
                             )
-                            GridDisplayMode.NORMAL -> Tile(
+                            GridDisplayMode.NORMAL -> NumberTile(
+                                day = day,
                                 filled = tracker.isCompleted(date),
                                 color = tracker.color,
                                 size = resolvedTileSize,
