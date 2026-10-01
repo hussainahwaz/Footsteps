@@ -15,9 +15,13 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TimePicker
+import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -31,6 +35,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
 import com.example.workoutcalender.model.CompletionMethod
 import com.example.workoutcalender.model.TrackerPresets
 import com.example.workoutcalender.model.iconFor
@@ -46,11 +51,11 @@ internal val TRACKER_FORM_PALETTE = listOf(
 private enum class GoalMode { WEEKLY, INTERVAL }
 
 /**
- * Shared name/icon/color/method/goal/overview-visibility form used by both
+ * Shared name/icon/color/method/goal/overview-visibility/reminder form used by both
  * CreateTrackerScreen and EditTrackerScreen -- only the screen title, starting
  * values, and submit label/callback differ between the two.
  */
-@OptIn(ExperimentalLayoutApi::class)
+@OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
 @Composable
 internal fun TrackerForm(
     screenTitle: String,
@@ -61,9 +66,21 @@ internal fun TrackerForm(
     initialTargetPerWeek: Int,
     initialIntervalDays: Int?,
     initialIncludeInOverall: Boolean,
+    initialReminderHour: Int?,
+    initialReminderMinute: Int?,
     submitLabel: String,
     onBack: () -> Unit,
-    onSubmit: (name: String, icon: String, color: Color, method: CompletionMethod, targetPerWeek: Int, intervalDays: Int?, includeInOverall: Boolean) -> Unit,
+    onSubmit: (
+        name: String,
+        icon: String,
+        color: Color,
+        method: CompletionMethod,
+        targetPerWeek: Int,
+        intervalDays: Int?,
+        includeInOverall: Boolean,
+        reminderHour: Int?,
+        reminderMinute: Int?,
+    ) -> Unit,
 ) {
     val colors = LocalConsistencyColors.current
     var name by remember { mutableStateOf(initialName) }
@@ -74,6 +91,10 @@ internal fun TrackerForm(
     var targetPerWeek by remember { mutableStateOf(initialTargetPerWeek) }
     var intervalDaysText by remember { mutableStateOf((initialIntervalDays ?: 15).toString()) }
     var includeInOverall by remember { mutableStateOf(initialIncludeInOverall) }
+    var reminderEnabled by remember { mutableStateOf(initialReminderHour != null) }
+    var reminderHour by remember { mutableStateOf(initialReminderHour ?: 9) }
+    var reminderMinute by remember { mutableStateOf(initialReminderMinute ?: 0) }
+    var showTimePicker by remember { mutableStateOf(false) }
     var selectedPreset by remember { mutableStateOf<String?>(null) }
 
     LazyColumn(
@@ -243,6 +264,49 @@ internal fun TrackerForm(
                     }
                 }
 
+                SectionLabel("REMINDER", topPadding = 22.dp)
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .border(1.dp, colors.border, RoundedCornerShape(12.dp))
+                        .clickable { reminderEnabled = !reminderEnabled }
+                        .padding(horizontal = 15.dp, vertical = 13.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text("Daily reminder", fontFamily = BodyFont, fontWeight = FontWeight.Medium, fontSize = 14.sp, color = colors.text)
+                    Column(
+                        modifier = Modifier
+                            .size(18.dp)
+                            .clip(CircleShape)
+                            .background(if (reminderEnabled) color else Color.Transparent)
+                            .border(2.dp, if (reminderEnabled) color else colors.border, CircleShape),
+                    ) {}
+                }
+                if (reminderEnabled) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 8.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .border(1.dp, colors.border, RoundedCornerShape(12.dp))
+                            .clickable { showTimePicker = true }
+                            .padding(horizontal = 15.dp, vertical = 13.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text("Time", fontFamily = BodyFont, fontSize = 14.sp, color = colors.textDim)
+                        Text(
+                            text = String.format("%02d:%02d", reminderHour, reminderMinute),
+                            fontFamily = BodyFont,
+                            fontWeight = FontWeight.SemiBold,
+                            fontSize = 14.sp,
+                            color = colors.text,
+                        )
+                    }
+                }
+
                 SectionLabel("HOME SCREEN", topPadding = 22.dp)
                 Row(
                     modifier = Modifier
@@ -273,6 +337,35 @@ internal fun TrackerForm(
                     ) {}
                 }
 
+                if (showTimePicker) {
+                    val state = rememberTimePickerState(initialHour = reminderHour, initialMinute = reminderMinute, is24Hour = false)
+                    Dialog(onDismissRequest = { showTimePicker = false }) {
+                        Column(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(20.dp))
+                                .background(colors.surface)
+                                .padding(20.dp),
+                        ) {
+                            TimePicker(state = state)
+                            Row(
+                                modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
+                                horizontalArrangement = Arrangement.End,
+                            ) {
+                                TextButton(onClick = { showTimePicker = false }) {
+                                    Text("Cancel", fontFamily = BodyFont)
+                                }
+                                TextButton(onClick = {
+                                    reminderHour = state.hour
+                                    reminderMinute = state.minute
+                                    showTimePicker = false
+                                }) {
+                                    Text("OK", fontFamily = BodyFont, color = color)
+                                }
+                            }
+                        }
+                    }
+                }
+
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -283,7 +376,17 @@ internal fun TrackerForm(
                             val resolvedInterval = if (goalMode == GoalMode.INTERVAL) {
                                 intervalDaysText.toIntOrNull()?.coerceAtLeast(1) ?: 15
                             } else null
-                            onSubmit(name.trim(), icon, color, method, targetPerWeek, resolvedInterval, includeInOverall)
+                            onSubmit(
+                                name.trim(),
+                                icon,
+                                color,
+                                method,
+                                targetPerWeek,
+                                resolvedInterval,
+                                includeInOverall,
+                                if (reminderEnabled) reminderHour else null,
+                                if (reminderEnabled) reminderMinute else null,
+                            )
                         }
                         .padding(15.dp),
                     horizontalArrangement = Arrangement.Center,

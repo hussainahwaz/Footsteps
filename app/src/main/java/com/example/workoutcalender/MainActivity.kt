@@ -1,9 +1,15 @@
 package com.example.workoutcalender
 
+import android.Manifest
+import android.content.Intent
+import android.os.Build
 import android.os.Bundle
+import android.provider.Settings
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -28,6 +34,7 @@ import com.example.workoutcalender.data.TrackerRepository
 import com.example.workoutcalender.model.CompletionMethod
 import com.example.workoutcalender.model.Tracker
 import com.example.workoutcalender.model.TrackerEntry
+import com.example.workoutcalender.notifications.AlarmScheduler
 import com.example.workoutcalender.ui.components.AppScreen
 import com.example.workoutcalender.ui.components.BottomNav
 import com.example.workoutcalender.ui.components.GridDisplayMode
@@ -74,22 +81,44 @@ class TrackerState(
         update(trackers.map { if (it.id == trackerId) it.withEntry(date, entry) else it })
     }
 
-    fun addTracker(name: String, icon: String, color: Color, method: CompletionMethod, targetPerWeek: Int, intervalDays: Int?, includeInOverall: Boolean) {
-        update(
-            trackers + Tracker(
-                id = "$name-${System.currentTimeMillis()}",
-                name = name,
-                icon = icon,
-                color = color,
-                method = method,
-                targetPerWeek = targetPerWeek,
-                intervalDays = intervalDays,
-                includeInOverall = includeInOverall,
-            ),
+    fun addTracker(
+        name: String,
+        icon: String,
+        color: Color,
+        method: CompletionMethod,
+        targetPerWeek: Int,
+        intervalDays: Int?,
+        includeInOverall: Boolean,
+        reminderHour: Int?,
+        reminderMinute: Int?,
+    ) {
+        val tracker = Tracker(
+            id = "$name-${System.currentTimeMillis()}",
+            name = name,
+            icon = icon,
+            color = color,
+            method = method,
+            targetPerWeek = targetPerWeek,
+            intervalDays = intervalDays,
+            includeInOverall = includeInOverall,
+            reminderHour = reminderHour,
+            reminderMinute = reminderMinute,
         )
+        update(trackers + tracker)
     }
 
-    fun updateTracker(trackerId: String, name: String, icon: String, color: Color, method: CompletionMethod, targetPerWeek: Int, intervalDays: Int?, includeInOverall: Boolean) {
+    fun updateTracker(
+        trackerId: String,
+        name: String,
+        icon: String,
+        color: Color,
+        method: CompletionMethod,
+        targetPerWeek: Int,
+        intervalDays: Int?,
+        includeInOverall: Boolean,
+        reminderHour: Int?,
+        reminderMinute: Int?,
+    ) {
         update(
             trackers.map {
                 if (it.id == trackerId) {
@@ -101,6 +130,8 @@ class TrackerState(
                         targetPerWeek = targetPerWeek,
                         intervalDays = intervalDays,
                         includeInOverall = includeInOverall,
+                        reminderHour = reminderHour,
+                        reminderMinute = reminderMinute,
                     )
                 } else it
             },
@@ -193,6 +224,17 @@ fun ConsistencyApp(
     // `state.trackers` in sync with whatever's on disk for the lifetime of the app.
     LaunchedEffect(Unit) { state.observe() }
 
+    // Ask for notification permission once, up front, rather than waiting for the
+    // first reminder to silently fail. No-op on API < 33, where it's granted by default.
+    val notificationPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission(),
+    ) { /* result ignored -- reminders simply won't show if denied */ }
+    LaunchedEffect(Unit) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        }
+    }
+
     var displayMode by remember { mutableStateOf(GridDisplayMode.NORMAL) }
 
     // Simple back-stack: bottom-nav taps reset to the root of that tab; opening a
@@ -206,6 +248,15 @@ fun ConsistencyApp(
     fun switchTab(tab: AppScreen) {
         stack.clear()
         stack.add(Screen.Tab(tab))
+    }
+
+    /** Opens the OS "Alarms & reminders" settings screen if exact alarms aren't permitted yet (API 31+). */
+    fun ensureExactAlarmPermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
+            !AlarmScheduler.canScheduleExactAlarms(context.applicationContext)
+        ) {
+            context.startActivity(Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM))
+        }
     }
 
     val currentTab = (stack.firstOrNull { it is Screen.Tab } as? Screen.Tab)?.tab ?: AppScreen.HOME
@@ -233,7 +284,10 @@ fun ConsistencyApp(
                             trackers = state.trackers,
                             onOpenTracker = { push(Screen.TrackerDetail(it.id)) },
                             onAddTracker = { push(Screen.CreateTracker) },
-                            onDeleteTracker = { state.deleteTracker(it.id) },
+                            onDeleteTracker = {
+                                AlarmScheduler.cancel(context.applicationContext, it.id)
+                                state.deleteTracker(it.id)
+                            },
                             onReorder = { from, to -> state.reorder(from, to) },
                         )
                         AppScreen.SETTINGS -> SettingsScreen(
@@ -262,8 +316,16 @@ fun ConsistencyApp(
 
                     Screen.CreateTracker -> CreateTrackerScreen(
                         onBack = ::pop,
-                        onCreate = { name, icon, color, method, targetPerWeek, intervalDays, includeInOverall ->
-                            state.addTracker(name, icon, color, method, targetPerWeek, intervalDays, includeInOverall)
+                        onCreate = { name, icon, color, method, targetPerWeek, intervalDays, includeInOverall, reminderHour, reminderMinute ->
+                            state.addTracker(name, icon, color, method, targetPerWeek, intervalDays, includeInOverall, reminderHour, reminderMinute)
+                            if (reminderHour != null && reminderMinute != null) {
+                                ensureExactAlarmPermission()
+                                // TrackerState generates the new tracker's id internally, so the
+                                // freshly created tracker is looked up by name to schedule its alarm.
+                                state.trackers.lastOrNull { it.name == name }?.let {
+                                    AlarmScheduler.schedule(context.applicationContext, it.id, reminderHour, reminderMinute)
+                                }
+                            }
                             pop()
                         },
                     )
@@ -274,8 +336,17 @@ fun ConsistencyApp(
                             EditTrackerScreen(
                                 tracker = tracker,
                                 onBack = ::pop,
-                                onSave = { name, icon, color, method, targetPerWeek, intervalDays, includeInOverall ->
-                                    state.updateTracker(tracker.id, name, icon, color, method, targetPerWeek, intervalDays, includeInOverall)
+                                onSave = { name, icon, color, method, targetPerWeek, intervalDays, includeInOverall, reminderHour, reminderMinute ->
+                                    state.updateTracker(
+                                        tracker.id, name, icon, color, method, targetPerWeek,
+                                        intervalDays, includeInOverall, reminderHour, reminderMinute,
+                                    )
+                                    if (reminderHour != null && reminderMinute != null) {
+                                        ensureExactAlarmPermission()
+                                        AlarmScheduler.schedule(context.applicationContext, tracker.id, reminderHour, reminderMinute)
+                                    } else {
+                                        AlarmScheduler.cancel(context.applicationContext, tracker.id)
+                                    }
                                     pop()
                                 },
                             )

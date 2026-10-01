@@ -11,7 +11,7 @@ import com.example.workoutcalender.model.Tracker
 fun EditTrackerScreen(
     tracker: Tracker,
     onBack: () -> Unit,
-    onSave: (name: String, icon: String, color: Color, method: CompletionMethod, targetPerWeek: Int, intervalDays: Int?, includeInOverall: Boolean) -> Unit,
+    onSave: (name: String, icon: String, color: Color, method: CompletionMethod, targetPerWeek: Int, intervalDays: Int?, includeInOverall: Boolean, reminderHour: Int?, reminderMinute: Int?) -> Unit,
 ) {
     TrackerForm(
         screenTitle = "Edit Tracker",
@@ -22,6 +22,8 @@ fun EditTrackerScreen(
         initialTargetPerWeek = tracker.targetPerWeek,
         initialIntervalDays = tracker.intervalDays,
         initialIncludeInOverall = tracker.includeInOverall,
+        initialReminderHour = tracker.reminderHour,
+        initialReminderMinute = tracker.reminderMinute,
         submitLabel = "Save Changes",
         onBack = onBack,
         onSubmit = onSave,

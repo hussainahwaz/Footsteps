@@ -9,7 +9,7 @@ import com.example.workoutcalender.model.CompletionMethod
 @Composable
 fun CreateTrackerScreen(
     onBack: () -> Unit,
-    onCreate: (name: String, icon: String, color: Color, method: CompletionMethod, targetPerWeek: Int, intervalDays: Int?, includeInOverall: Boolean) -> Unit,
+    onCreate: (name: String, icon: String, color: Color, method: CompletionMethod, targetPerWeek: Int, intervalDays: Int?, includeInOverall: Boolean, reminderHour: Int?, reminderMinute: Int?) -> Unit,
 ) {
     TrackerForm(
         screenTitle = "New Tracker",
@@ -20,6 +20,8 @@ fun CreateTrackerScreen(
         initialTargetPerWeek = 7,
         initialIntervalDays = null,
         initialIncludeInOverall = true,
+        initialReminderHour = null,
+        initialReminderMinute = null,
         submitLabel = "Create Tracker",
         onBack = onBack,
         onSubmit = onCreate,

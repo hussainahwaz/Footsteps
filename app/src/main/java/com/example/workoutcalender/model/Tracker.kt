@@ -2,6 +2,7 @@ package com.example.workoutcalender.model
 
 import androidx.compose.ui.graphics.Color
 import java.time.LocalDate
+import java.time.LocalTime
 import java.time.temporal.ChronoUnit
 
 enum class CompletionMethod { QUICK, DETAILED, BOTH }
@@ -22,25 +23,19 @@ data class Tracker(
     val icon: String,
     val color: Color,
     val method: CompletionMethod,
-    /**
-     * How many days a week this needs to be done -- 7 means daily. Ignored when
-     * [intervalDays] is set; a tracker is either weekly-goal-based or interval-based,
-     * never both.
-     */
     val targetPerWeek: Int = 7,
-    /**
-     * For habits that don't fit a weekly cadence at all -- e.g. medicine taken every
-     * 15 days. When non-null, this overrides [targetPerWeek] entirely: streaks become
-     * "consecutive on-time doses" rather than "consecutive days/weeks", and stats
-     * show a next-due date instead of weekly progress.
-     */
     val intervalDays: Int? = null,
     val includeInOverall: Boolean = true,
+    /** Null means no reminder set. Both are set together or not at all. */
+    val reminderHour: Int? = null,
+    val reminderMinute: Int? = null,
     val completedDates: Set<LocalDate> = emptySet(),
     val entries: Map<LocalDate, TrackerEntry> = emptyMap(),
 ) {
     val isIntervalGoal: Boolean get() = intervalDays != null
     val isDailyGoal: Boolean get() = !isIntervalGoal && targetPerWeek >= 7
+    val reminderTime: LocalTime? get() =
+        if (reminderHour != null && reminderMinute != null) LocalTime.of(reminderHour, reminderMinute) else null
 
     fun isCompleted(date: LocalDate) = completedDates.contains(date)
 
@@ -55,21 +50,18 @@ data class Tracker(
             entries = entries + (date to entry),
         )
 
-    /** Completions within the Sunday-Saturday week containing [date]. Only meaningful for weekly-goal trackers. */
     fun completedInWeek(date: LocalDate = LocalDate.now()): Int {
         val start = weekStartOf(date)
         val end = start.plusDays(6)
         return completedDates.count { it >= start && it <= end }
     }
 
-    /** When the next dose/entry is due, for interval-based trackers. Null if never logged or not an interval tracker. */
     fun nextDueDate(): LocalDate? {
         val interval = intervalDays ?: return null
         val last = completedDates.maxOrNull() ?: return null
         return last.plusDays(interval.toLong())
     }
 
-    /** Days remaining until due (negative if overdue). Null if never logged or not an interval tracker. */
     fun daysUntilDue(today: LocalDate = LocalDate.now()): Long? {
         val due = nextDueDate() ?: return null
         return ChronoUnit.DAYS.between(today, due)
@@ -81,12 +73,22 @@ data class Tracker(
     }
 
     /**
-     * Daily goals: consecutive days ending today.
-     * Weekly goals: consecutive weeks (Sun-Sat) that hit [targetPerWeek] -- the current
-     * in-progress week only joins once it has actually met the target.
-     * Interval goals: consecutive doses whose gap from the previous dose was within
-     * [intervalDays] -- broken to 0 the moment the tracker becomes overdue.
+     * Whether a reminder fired today should actually notify -- e.g. a daily tracker
+     * already marked done today doesn't need a nudge, and a weekly tracker that's
+     * already hit its target this week (even via other days) doesn't either.
      */
+    fun needsReminderToday(today: LocalDate = LocalDate.now()): Boolean {
+        if (isCompleted(today)) return false
+        return when {
+            isIntervalGoal -> {
+                val days = daysUntilDue(today)
+                days == null || days <= 0
+            }
+            isDailyGoal -> true
+            else -> completedInWeek(today) < targetPerWeek
+        }
+    }
+
     fun currentStreak(today: LocalDate = LocalDate.now()): Int {
         if (isIntervalGoal) {
             val interval = intervalDays!!
@@ -166,7 +168,6 @@ data class Tracker(
         completedDates.count { it.year == year && it.monthValue == month }
 }
 
-/** Sunday-first week start for a date -- matches ContributionGrid.kt's Sunday-first columns. */
 private fun weekStartOf(date: LocalDate): LocalDate {
     val col = date.dayOfWeek.value % 7
     return date.minusDays(col.toLong())
